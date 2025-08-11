@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gorras La Marca - Tienda Online</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons para iconos bonitos -->
+    <script src="https://unpkg.com/phosphor-icons"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Fondo oscuro */
+            color: #e2e8f0; /* Texto claro */
+        }
+        /* Ocultar el scroll en el body cuando el carrito está abierto */
+        .overflow-hidden {
+            overflow: hidden;
+        }
+        /* Animación para el carrito */
+        .cart-modal {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .cart-modal.open {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+    <!-- Encabezado de la página -->
+    <header class="bg-gray-900 shadow-lg sticky top-0 z-50">
+        <nav class="container mx-auto p-4 flex justify-between items-center">
+            <a href="#" class="text-2xl font-bold text-white">Gorras La Marca</a>
+            <div class="relative cursor-pointer" id="cart-icon">
+                <i class="ph-shopping-cart text-white text-2xl"></i>
+                <span id="cart-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Contenido principal - Productos -->
+    <main class="container mx-auto p-6 mt-8">
+        <h1 class="text-4xl font-bold text-center mb-10 text-white">Nuestra Colección</h1>
+        <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Las tarjetas de productos se renderizarán aquí con JavaScript -->
+        </div>
+    </main>
+
+    <!-- Modal del carrito de compras -->
+    <div id="cart-backdrop" class="fixed inset-0 bg-black bg-opacity-70 z-40 hidden"></div>
+    <div id="cart-modal" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-gray-800 shadow-2xl p-6 z-50 cart-modal flex flex-col">
+        <div class="flex justify-between items-center border-b border-gray-700 pb-4 mb-4">
+            <h2 class="text-2xl font-bold text-white">Tu Carrito</h2>
+            <button id="close-cart" class="text-gray-400 hover:text-white transition-colors">
+                <i class="ph-x text-2xl"></i>
+            </button>
+        </div>
+        <div id="cart-items" class="flex-grow overflow-y-auto mb-4">
+            <!-- Los artículos del carrito se renderizarán aquí -->
+            <p id="empty-cart-message" class="text-gray-400 text-center">El carrito está vacío.</p>
+        </div>
+        <div class="border-t border-gray-700 pt-4">
+            <div class="flex justify-between items-center text-xl font-bold mb-4">
+                <span class="text-white">Total:</span>
+                <span id="cart-total" class="text-green-400">$0.00</span>
+            </div>
+            <button id="checkout-button" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                Proceder al Pago
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Datos de productos de ejemplo
+            const products = [
+                {
+                    id: 1,
+                    name: 'Gorra Clásica Negra',
+                    price: 25.00,
+                    imageUrl: 'https://placehold.co/500x500/1e293b/d1d5db?text=Gorra+Negra'
+                },
+                {
+                    id: 2,
+                    name: 'Gorra Deportiva Azul',
+                    price: 30.00,
+                    imageUrl: 'https://placehold.co/500x500/312e81/d1d5db?text=Gorra+Azul'
+                },
+                {
+                    id: 3,
+                    name: 'Gorra de Piel Marrón',
+                    price: 45.00,
+                    imageUrl: 'https://placehold.co/500x500/713f12/d1d5db?text=Gorra+Marrón'
+                },
+                {
+                    id: 4,
+                    name: 'Gorra de Verano Blanca',
+                    price: 28.00,
+                    imageUrl: 'https://placehold.co/500x500/f3f4f6/1f2937?text=Gorra+Blanca'
+                },
+                {
+                    id: 5,
+                    name: 'Gorra "Street" Gris',
+                    price: 35.00,
+                    imageUrl: 'https://placehold.co/500x500/4b5563/d1d5db?text=Gorra+Gris'
+                },
+                {
+                    id: 6,
+                    name: 'Gorra Trucker Roja',
+                    price: 22.00,
+                    imageUrl: 'https://placehold.co/500x500/dc2626/d1d5db?text=Gorra+Roja'
+                },
+            ];
+
+            // Estado del carrito
+            let cart = [];
+
+            // Referencias a los elementos del DOM
+            const productGrid = document.getElementById('product-grid');
+            const cartCount = document.getElementById('cart-count');
+            const cartIcon = document.getElementById('cart-icon');
+            const cartModal = document.getElementById('cart-modal');
+            const cartBackdrop = document.getElementById('cart-backdrop');
+            const closeCartButton = document.getElementById('close-cart');
+            const cartItemsContainer = document.getElementById('cart-items');
+            const cartTotalElement = document.getElementById('cart-total');
+            const emptyCartMessage = document.getElementById('empty-cart-message');
+
+            /**
+             * Renderiza las tarjetas de productos en la cuadrícula principal.
+             */
+            function renderProducts() {
+                productGrid.innerHTML = products.map(product => `
+                    <div class="bg-gray-800 rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:scale-105">
+                        <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-auto object-cover">
+                        <div class="p-4 text-center">
+                            <h3 class="text-xl font-semibold mb-2 text-white">${product.name}</h3>
+                            <p class="text-green-400 text-lg font-bold mb-4">$${product.price.toFixed(2)}</p>
+                            <button data-product-id="${product.id}" class="add-to-cart-btn w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                                Añadir al Carrito
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            /**
+             * Actualiza la visualización del carrito de compras.
+             */
+            function renderCart() {
+                // Actualizar el contador de la burbuja
+                const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+                cartCount.textContent = totalItems;
+                
+                // Mostrar u ocultar el mensaje de carrito vacío
+                if (cart.length === 0) {
+                    emptyCartMessage.style.display = 'block';
+                } else {
+                    emptyCartMessage.style.display = 'none';
+                }
+
+                // Renderizar los artículos del carrito
+                cartItemsContainer.innerHTML = cart.map(item => `
+                    <div class="flex items-center gap-4 mb-4 pb-4 border-b border-gray-700 last:border-b-0">
+                        <img src="${item.imageUrl}" alt="${item.name}" class="w-16 h-16 rounded-md object-cover">
+                        <div class="flex-grow">
+                            <h4 class="font-semibold text-white">${item.name}</h4>
+                            <p class="text-gray-400 text-sm">$${item.price.toFixed(2)} x ${item.quantity}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button data-product-id="${item.id}" class="remove-from-cart-btn bg-red-600 text-white text-sm w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors">
+                                <i class="ph-minus text-base"></i>
+                            </button>
+                            <span class="text-white font-semibold">${item.quantity}</span>
+                            <button data-product-id="${item.id}" class="add-to-cart-btn bg-green-600 text-white text-sm w-8 h-8 rounded-full flex items-center justify-center hover:bg-green-700 transition-colors">
+                                <i class="ph-plus text-base"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Calcular y actualizar el total
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                cartTotalElement.textContent = `$${total.toFixed(2)}`;
+            }
+
+            /**
+             * Abre o cierra el modal del carrito.
+             * @param {boolean} isOpen - true para abrir, false para cerrar.
+             */
+            function toggleCart(isOpen) {
+                if (isOpen) {
+                    cartModal.classList.add('open');
+                    cartBackdrop.classList.remove('hidden');
+                    document.body.classList.add('overflow-hidden');
+                } else {
+                    cartModal.classList.remove('open');
+                    cartBackdrop.classList.add('hidden');
+                    document.body.classList.remove('overflow-hidden');
+                }
+            }
+
+            // Delegación de eventos para los botones de añadir y quitar
+            document.body.addEventListener('click', (e) => {
+                const target = e.target.closest('.add-to-cart-btn, .remove-from-cart-btn');
+                if (target) {
+                    const productId = parseInt(target.getAttribute('data-product-id'));
+                    const product = products.find(p => p.id === productId);
+
+                    if (!product) return;
+
+                    const cartItemIndex = cart.findIndex(item => item.id === productId);
+
+                    if (target.classList.contains('add-to-cart-btn')) {
+                        if (cartItemIndex > -1) {
+                            cart[cartItemIndex].quantity++;
+                        } else {
+                            cart.push({ ...product, quantity: 1 });
+                        }
+                    } else if (target.classList.contains('remove-from-cart-btn')) {
+                        if (cartItemIndex > -1) {
+                            cart[cartItemIndex].quantity--;
+                            if (cart[cartItemIndex].quantity <= 0) {
+                                cart.splice(cartItemIndex, 1);
+                            }
+                        }
+                    }
+                    renderCart();
+                }
+            });
+
+            // Eventos para abrir y cerrar el carrito
+            cartIcon.addEventListener('click', () => toggleCart(true));
+            closeCartButton.addEventListener('click', () => toggleCart(false));
+            cartBackdrop.addEventListener('click', () => toggleCart(false));
+
+            // Evento para el botón de pago (solo de ejemplo)
+            checkoutButton.addEventListener('click', () => {
+                if (cart.length > 0) {
+                    // Aquí iría la lógica de pago real
+                    alert('¡Gracias por tu compra! (Este es un botón de ejemplo)');
+                    cart = []; // Vaciar el carrito después del "pago"
+                    renderCart();
+                    toggleCart(false);
+                } else {
+                    alert('Tu carrito está vacío.');
+                }
+            });
+            
+            // Renderizar los productos al cargar la página
+            renderProducts();
+            renderCart();
+        });
+    </script>
+</body>
+</html>
+
